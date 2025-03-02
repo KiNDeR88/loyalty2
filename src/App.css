@@ -1,0 +1,686 @@
+/* Общие стили */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+}
+
+/* Контейнер приложения */
+.app-container {
+  display: flex;
+  height: calc(100vh - 150px);
+}
+
+/* Панель инструментов */
+.toolbar {
+  width: 220px;
+  background: #2c3e50;
+  color: #ecf0f1;
+  padding: 20px;
+  border-right: 2px solid #34495e;
+}
+
+.toolbar h3 {
+  margin-top: 0;
+  font-size: 18px;
+}
+
+.toolbar-item {
+  background: linear-gradient(145deg, #34495e, #2c3e50);
+  padding: 10px 15px;
+  margin-bottom: 12px;
+  text-align: center;
+  cursor: grab;
+  border-radius: 4px;
+  transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toolbar-item:hover {
+  background: linear-gradient(145deg, #3d566e, #2c3e50);
+  transform: scale(1.03);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Унифицированный стиль для всех кнопок (уменьшённые размеры) */
+button,
+.simulate-button,
+.save-button,
+.connect-button,
+.add-next-button {
+  display: inline-block;
+  width: 100%;
+  padding: 8px 12px;
+  margin-top: 8px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(145deg, #3498db, #2980b9);
+  color: #fff;
+  font-family: 'Roboto', sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  outline: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+button:hover,
+.simulate-button:hover,
+.save-button:hover,
+.connect-button:hover,
+.add-next-button:hover {
+  background: linear-gradient(145deg, #2980b9, #3498db);
+  transform: scale(1.03);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
+}
+
+button:focus,
+.simulate-button:focus,
+.save-button:focus,
+.connect-button:focus,
+.add-next-button:focus {
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.5);
+}
+
+button:active,
+.simulate-button:active,
+.save-button:active,
+.connect-button:active,
+.add-next-button:active {
+  transform: scale(0.98);
+}
+
+/* Индивидуальные стили для отдельных кнопок */
+.save-button {
+  background: linear-gradient(145deg, #27ae60, #219150);
+}
+
+.save-button:hover {
+  background: linear-gradient(145deg, #219150, #27ae60);
+}
+
+.connect-button {
+  background: linear-gradient(145deg, #f39c12, #e67e22);
+}
+
+.connect-button:hover {
+  background: linear-gradient(145deg, #e67e22, #f39c12);
+}
+
+.add-next-button {
+  background: linear-gradient(145deg, #5cb85c, #4cae4c);
+}
+
+.add-next-button:hover {
+  background: linear-gradient(145deg, #4cae4c, #5cb85c);
+}
+
+/* Слой соединений — линии, соединяющие блоки */
+.connections-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Блоки на холсте */
+.canvas-block {
+  width: 150px;
+  min-height: 80px;
+  background: linear-gradient(135deg, #ffffff, #f2f2f2);
+  border: 2px solid #dcdcdc;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  position: absolute;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: visible;
+  z-index: 2;
+}
+
+.canvas-block:hover {
+  transform: scale(1.05);
+  border-color: #3498db;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.canvas-block.selected {
+  border-color: #e74c3c;
+  box-shadow: 0 0 12px rgba(231, 76, 60, 0.6);
+}
+
+/* Обновлённое оформление текста внутри блока */
+/* Заголовок блока */
+.block-header strong {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c3e50;
+  letter-spacing: 0.5px;
+  text-align: center;
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* Тип блока (подзаголовок) */
+.block-type {
+  font-size: 12px;
+  color: #555;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+/* Сводка блока – основное описание */
+.block-summary {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #444;
+  text-align: left;
+  padding: 8px 10px;
+  margin: 8px auto 0 auto;
+  max-width: 130px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+}
+
+/* Стили для кнопки удаления блока (круглая, плоская кнопка поверх блока) */
+.delete-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e74c3c;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+  margin-top: -10px;
+  margin-right: -10px;
+  transition: transform 0.2s ease, background 0.2s ease;
+  z-index: 10;
+}
+
+.delete-button:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.delete-button:active {
+  transform: scale(0.95);
+}
+
+/* Анимация удаления блока (fade-out) */
+.canvas-block.deleting {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
+/* Рабочая область (Canvas) */
+.canvas {
+  flex: 1;
+  position: relative;
+  background: #ecf0f1;
+  overflow: hidden;
+  transition: border 0.3s ease;
+}
+
+/* Обновленные стили для тегов во временном триггере */
+/* Контейнер для тегов */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+/* Тег */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* При наведении на тег */
+.tag:hover {
+  background: #bee5eb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Кнопка удаления внутри тега */
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: #e74c3c;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  margin-left: 5px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.tag-remove:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.tag-remove:active {
+  transform: scale(0.95);
+}
+
+/* Лог симуляции */
+.simulation-log {
+  padding: 10px;
+  background: #ecf0f1;
+  border-top: 2px solid #bdc3c7;
+  height: 150px;
+  overflow-y: auto;
+  font-family: monospace;
+}
+
+/* Боковая панель */
+.side-panel {
+  width: 280px;
+  background: #f7f9fa;
+  padding: 20px;
+  border-left: 2px solid #ecf0f1;
+  transition: all 0.3s ease;
+  overflow-y: auto;
+}
+
+.side-panel.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: italic;
+  color: #7f8c8d;
+}
+
+.side-panel h3 {
+  margin-top: 0;
+  color: #2c3e50;
+}
+
+/* Форма */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #34495e;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+}
+
+/* Подсказки */
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 8px;
+  position: absolute;
+  z-index: 10;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  .toolbar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid #34495e;
+  }
+  .side-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 2px solid #ecf0f1;
+  }
+  .canvas {
+    height: calc(100vh - 200px);
+  }
+}
+
+/* Кастомизация чекбоксов */
+.checkbox-container {
+  display: inline-block;
+  position: relative;
+  padding-left: 30px;
+  margin-right: 15px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+.checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 18px;
+  width: 18px;
+  background-color: #eee;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.checkbox-container:hover input ~ .checkmark {
+  background-color: #ccc;
+}
+
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #3498db;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-container .checkmark:after {
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Стили для тегов */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  background: #d1ecf1;
+  color: #0c5460;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 12px;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.tag:hover {
+  background: #bee5eb;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.tag-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: #e74c3c;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  margin-left: 5px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.tag-remove:hover {
+  background: #c0392b;
+  transform: scale(1.1);
+}
+
+.tag-remove:active {
+  transform: scale(0.95);
+}
+
+/* Лог симуляции */
+.simulation-log {
+  padding: 10px;
+  background: #ecf0f1;
+  border-top: 2px solid #bdc3c7;
+  height: 150px;
+  overflow-y: auto;
+  font-family: monospace;
+}
+
+/* Боковая панель */
+.side-panel {
+  width: 280px;
+  background: #f7f9fa;
+  padding: 20px;
+  border-left: 2px solid #ecf0f1;
+  transition: all 0.3s ease;
+  overflow-y: auto;
+}
+
+.side-panel.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-style: italic;
+  color: #7f8c8d;
+}
+
+.side-panel h3 {
+  margin-top: 0;
+  color: #2c3e50;
+}
+
+/* Форма */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #34495e;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #bdc3c7;
+  border-radius: 4px;
+}
+
+/* Подсказки */
+.tooltip-container {
+  position: relative;
+  display: inline-block;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  width: 200px;
+  background-color: #333;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 8px;
+  position: absolute;
+  z-index: 10;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column;
+  }
+  .toolbar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 2px solid #34495e;
+  }
+  .side-panel {
+    width: 100%;
+    border-left: none;
+    border-top: 2px solid #ecf0f1;
+  }
+  .canvas {
+    height: calc(100vh - 200px);
+  }
+}
+
+/* Кастомизация чекбоксов */
+.checkbox-container {
+  display: inline-block;
+  position: relative;
+  padding-left: 30px;
+  margin-right: 15px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+}
+
+.checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 18px;
+  width: 18px;
+  background-color: #eee;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.checkbox-container:hover input ~ .checkmark {
+  background-color: #ccc;
+}
+
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #3498db;
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-container .checkmark:after {
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Стили для уведомления (toast) */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(52, 152, 219, 0.9);
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  font-size: 14px;
+  z-index: 100;
+}

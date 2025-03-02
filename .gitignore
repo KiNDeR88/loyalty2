@@ -1,0 +1,10 @@
+# Исключаем node_modules
+node_modules/
+
+# Исключаем сборку проекта
+build/
+dist/
+
+# Файлы системы
+.DS_Store
+.env
