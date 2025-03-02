@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/loyalty2/static/css/main.c0ef0feb.css",
+    "main.js": "/loyalty2/static/js/main.a5c050cc.js",
+    "index.html": "/loyalty2/index.html",
+    "main.c0ef0feb.css.map": "/loyalty2/static/css/main.c0ef0feb.css.map",
+    "main.a5c050cc.js.map": "/loyalty2/static/js/main.a5c050cc.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.c0ef0feb.css",
+    "static/js/main.a5c050cc.js"
+  ]
+}
