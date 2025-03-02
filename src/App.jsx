@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  memo,
+} from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { v4 as uuidv4 } from 'uuid';
@@ -14,7 +20,7 @@ class ErrorBoundary extends React.Component {
     return { hasError: true, error };
   }
   componentDidCatch(error, errorInfo) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
+    console.error('ErrorBoundary caught an error', error, errorInfo);
   }
   render() {
     if (this.state.hasError) {
@@ -39,7 +45,6 @@ const Tooltip = ({ text, children }) => (
   </div>
 );
 
-// Компонент для группировки полей формы с подсказкой
 const FormGroup = ({ label, tooltip, title, children }) => (
   <div className="form-group" title={title}>
     <Tooltip text={tooltip}>
@@ -51,21 +56,31 @@ const FormGroup = ({ label, tooltip, title, children }) => (
 
 const getBlockTypeName = (type) => {
   switch (type) {
-    case 'trigger': return 'Триггер';
-    case 'condition': return 'Условие';
-    case 'action': return 'Действие';
-    case 'communication': return 'Коммуникация';
-    default: return type;
+    case 'trigger':
+      return 'Триггер';
+    case 'condition':
+      return 'Условие';
+    case 'action':
+      return 'Действие';
+    case 'communication':
+      return 'Коммуникация';
+    default:
+      return type;
   }
 };
 
+/* Расширение функциональности (п.1,6):
+   - Новые типы триггеров: "geolocation", "custom"
+   - Поля для сегментации и уровня лояльности с предопределёнными вариантами */
 function defaultConfig(type) {
   if (type === 'trigger')
     return {
       event: 'registration',
       status: '',
       dayOfWeek: [],
-      time: ''
+      time: '',
+      segment: '',
+      loyaltyLevel: '',
     };
   if (type === 'condition')
     return {
@@ -83,7 +98,7 @@ function defaultConfig(type) {
       subconditions: [
         { conditionType: 'purchase_amount', operator: '>', value: 1000, count: 1, category: '', product: '', pointOfSale: '', region: '', vip: false },
         { conditionType: 'purchase_amount', operator: '>', value: 1000, count: 1, category: '', product: '', pointOfSale: '', region: '', vip: false }
-      ]
+      ],
     };
   if (type === 'action')
     return {
@@ -100,129 +115,201 @@ function defaultConfig(type) {
       repeat: false,
       repeatInterval: 0,
       repeatCount: 0,
-      tagName: ''
+      tagName: '',
     };
   if (type === 'communication')
     return {
       channel: 'email',
       subject: '',
-      message: ''
+      message: '',
     };
   return {};
-}
+};
 
 const getBlockSummary = ({ data }) => {
-  if (!data || !data.config) return "";
+  if (!data || !data.config) return '';
   const { type, config } = data;
   switch (type) {
-    case "trigger":
+    case 'trigger':
       return `Событие: ${
-        config.event === "registration" ? "Регистрация" :
-        config.event === "purchase" ? "Покупка" :
-        config.event === "login" ? "Вход" :
-        config.event === "birthday" ? "День рождения" :
-        config.event === "abandoned_cart" ? "Брошенная корзина" :
-        config.event === "referral" ? "Реферальный" :
-        config.event === "site_activity" ? "Активность на сайте" :
-        config.event === "review" ? "Отзыв/Оценка" :
-        config.event === "seasonal" ? "Сезонный/Промо" :
-        config.event === "time_based" ? `Время: ${config.dayOfWeek.join(', ')} ${config.time}` :
-        config.event === "nth_day" ? `Наступил ${config.day} день` :
-        config.event === "status_update" ? `Обновление статуса: ${config.status}` :
-        config.event
+        config.event === 'registration'
+          ? 'Регистрация'
+          : config.event === 'purchase'
+          ? 'Покупка'
+          : config.event === 'login'
+          ? 'Вход'
+          : config.event === 'birthday'
+          ? 'День рождения'
+          : config.event === 'abandoned_cart'
+          ? 'Брошенная корзина'
+          : config.event === 'referral'
+          ? 'Реферальный'
+          : config.event === 'site_activity'
+          ? 'Активность на сайте'
+          : config.event === 'review'
+          ? 'Отзыв/Оценка'
+          : config.event === 'seasonal'
+          ? 'Сезонный/Промо'
+          : config.event === 'time_based'
+          ? `Время: ${config.dayOfWeek.join(', ')} ${config.time}`
+          : config.event === 'nth_day'
+          ? `Наступил ${config.day} день`
+          : config.event === 'status_update'
+          ? `Обновление статуса: ${config.status}`
+          : config.event === 'geolocation'
+          ? 'Геолокационный триггер'
+          : config.event === 'custom'
+          ? 'Пользовательский триггер'
+          : config.event
       }`;
-    case "condition":
+    case 'condition':
       if (!config.composite) {
         switch (config.conditionType) {
-          case "purchase_amount": return `Сумма покупок ${config.operator} ${config.value}`;
-          case "purchase_count": return `Количество покупок ${config.operator} ${config.count}`;
-          case "category": return `Категория ${config.operator}: ${config.category}`;
-          case "product": return `Конкретный товар ${config.operator}: ${config.product}`;
-          case "point_of_sale": return `Точка продаж ${config.operator}: ${config.pointOfSale}`;
-          case "region": return `Регион ${config.operator}: ${config.region}`;
-          case "vip_status": return `VIP статус: ${config.vip ? "VIP" : "Не VIP"}`;
-          default: return "";
+          case 'purchase_amount':
+            return `Сумма покупок ${config.operator} ${config.value}`;
+          case 'purchase_count':
+            return `Количество покупок ${config.operator} ${config.count}`;
+          case 'category':
+            return `Категория ${config.operator}: ${config.category}`;
+          case 'product':
+            return `Конкретный товар ${config.operator}: ${config.product}`;
+          case 'point_of_sale':
+            return `Точка продаж ${config.operator}: ${config.pointOfSale}`;
+          case 'region':
+            return `Регион ${config.operator}: ${config.region}`;
+          case 'vip_status':
+            return `VIP статус: ${config.vip ? 'VIP' : 'Не VIP'}`;
+          default:
+            return '';
         }
       } else {
         const [sub1, sub2] = config.subconditions;
         const getSubSummary = (sub) => {
           switch (sub.conditionType) {
-            case "purchase_amount": return `Сумма покупок ${sub.operator} ${sub.value}`;
-            case "purchase_count": return `Количество покупок ${sub.operator} ${sub.count}`;
-            case "category": return `Категория ${sub.operator}: ${sub.category}`;
-            case "product": return `Конкретный товар ${sub.operator}: ${sub.product}`;
-            case "point_of_sale": return `Точка продаж ${sub.operator}: ${sub.pointOfSale}`;
-            case "region": return `Регион ${sub.operator}: ${sub.region}`;
-            case "vip_status": return `VIP статус: ${sub.vip ? "VIP" : "Не VIP"}`;
-            default: return "";
+            case 'purchase_amount':
+              return `Сумма покупок ${sub.operator} ${sub.value}`;
+            case 'purchase_count':
+              return `Количество покупок ${sub.operator} ${sub.count}`;
+            case 'category':
+              return `Категория ${sub.operator}: ${sub.category}`;
+            case 'product':
+              return `Конкретный товар ${sub.operator}: ${sub.product}`;
+            case 'point_of_sale':
+              return `Точка продаж ${sub.operator}: ${sub.pointOfSale}`;
+            case 'region':
+              return `Регион ${sub.operator}: ${sub.region}`;
+            case 'vip_status':
+              return `VIP статус: ${sub.vip ? 'VIP' : 'Не VIP'}`;
+            default:
+              return '';
           }
         };
-        return `(${getSubSummary(sub1)} ${config.logicOperator === "AND" ? "И" : "ИЛИ"} ${getSubSummary(sub2)})`;
+        return `(${getSubSummary(sub1)} ${config.logicOperator === 'AND' ? 'И' : 'ИЛИ'} ${getSubSummary(sub2)})`;
       }
-    case "action":
+    case 'action':
       switch (config.action) {
-        case "bonus": return `Начисление бонусов: ${config.bonusAmount}`;
-        case "coupon": return `Купон: ${config.couponCode}`;
-        case "discount": return `Скидка: ${config.discountType === "fixed" ? config.discountValue : config.discountValue + "%"}`;
-        case "notification": return `Уведомление: ${config.notificationTemplate}`;
-        case "status_change": return `Изменение статуса: ${config.newStatus}`;
-        case "external_api": return `Вызов API: ${config.apiUrl}`;
-        case "set_tag": return `Установить метку: ${config.tagName}`;
-        default: return "";
+        case 'bonus':
+          return `Начисление бонусов: ${config.bonusAmount}`;
+        case 'coupon':
+          return `Купон: ${config.couponCode}`;
+        case 'discount':
+          return `Скидка: ${config.discountType === 'fixed' ? config.discountValue : config.discountValue + '%'}`;
+        case 'notification':
+          return `Уведомление: ${config.notificationTemplate}`;
+        case 'status_change':
+          return `Изменение статуса: ${config.newStatus}`;
+        case 'external_api':
+          return `Вызов API: ${config.apiUrl}`;
+        case 'set_tag':
+          return `Установить метку: ${config.tagName}`;
+        default:
+          return '';
       }
-    case "communication":
+    case 'communication':
       return `Коммуникация: ${config.channel}, Тема: ${config.subject}, Сообщение: ${config.message}`;
-    default: return "";
+    default:
+      return '';
   }
 };
 
+/* Модуль для оценки условий и выполнения действий – можно покрыть тестами */
 const evaluateSimpleCondition = (simpleConfig, eventData) => {
   switch (simpleConfig.conditionType) {
     case 'purchase_amount': {
       const { operator, value } = simpleConfig;
       const eventValue = eventData.amount;
       switch (operator) {
-        case '>': return eventValue > value;
-        case '>=': return eventValue >= value;
-        case '<': return eventValue < value;
-        case '<=': return eventValue <= value;
-        case '==': return eventValue === value;
-        case '!=': return eventValue !== value;
-        default: return false;
+        case '>':
+          return eventValue > value;
+        case '>=':
+          return eventValue >= value;
+        case '<':
+          return eventValue < value;
+        case '<=':
+          return eventValue <= value;
+        case '==':
+          return eventValue === value;
+        case '!=':
+          return eventValue !== value;
+        default:
+          return false;
       }
     }
     case 'purchase_count': {
       const { operator, count } = simpleConfig;
       const eventValue = eventData.count;
       switch (operator) {
-        case '>': return eventValue > count;
-        case '>=': return eventValue >= count;
-        case '<': return eventValue < count;
-        case '<=': return eventValue <= count;
-        case '==': return eventValue === count;
-        case '!=': return eventValue !== count;
-        default: return false;
+        case '>':
+          return eventValue > count;
+        case '>=':
+          return eventValue >= count;
+        case '<':
+          return eventValue < count;
+        case '<=':
+          return eventValue <= count;
+        case '==':
+          return eventValue === count;
+        case '!=':
+          return eventValue !== count;
+        default:
+          return false;
       }
     }
     case 'category': {
       return simpleConfig.operator === 'содержит'
-        ? (eventData.category ? eventData.category.includes(simpleConfig.category) : false)
-        : (simpleConfig.operator === 'полностью совпадает' ? eventData.category === simpleConfig.category : false);
+        ? eventData.category
+          ? eventData.category.includes(simpleConfig.category)
+          : false
+        : simpleConfig.operator === 'полностью совпадает'
+        ? eventData.category === simpleConfig.category
+        : false;
     }
     case 'product': {
       return simpleConfig.operator === 'содержит'
-        ? (eventData.product ? eventData.product.includes(simpleConfig.product) : false)
-        : (simpleConfig.operator === 'полностью совпадает' ? eventData.product === simpleConfig.product : false);
+        ? eventData.product
+          ? eventData.product.includes(simpleConfig.product)
+          : false
+        : simpleConfig.operator === 'полностью совпадает'
+        ? eventData.product === simpleConfig.product
+        : false;
     }
     case 'point_of_sale': {
       return simpleConfig.operator === 'содержит'
-        ? (eventData.pointOfSale ? eventData.pointOfSale.includes(simpleConfig.pointOfSale) : false)
-        : (simpleConfig.operator === 'полностью совпадает' ? eventData.pointOfSale === simpleConfig.pointOfSale : false);
+        ? eventData.pointOfSale
+          ? eventData.pointOfSale.includes(simpleConfig.pointOfSale)
+          : false
+        : simpleConfig.operator === 'полностью совпадает'
+        ? eventData.pointOfSale === simpleConfig.pointOfSale
+        : false;
     }
     case 'region': {
       return simpleConfig.operator === 'содержит'
-        ? (eventData.region ? eventData.region.includes(simpleConfig.region) : false)
-        : (simpleConfig.operator === 'полностью совпадает' ? eventData.region === simpleConfig.region : false);
+        ? eventData.region
+          ? eventData.region.includes(simpleConfig.region)
+          : false
+        : simpleConfig.operator === 'полностью совпадает'
+        ? eventData.region === simpleConfig.region
+        : false;
     }
     case 'vip_status': {
       return eventData.vip === simpleConfig.vip;
@@ -231,13 +318,20 @@ const evaluateSimpleCondition = (simpleConfig, eventData) => {
       const { operator, frequency } = simpleConfig;
       const eventValue = eventData.frequency;
       switch (operator) {
-        case '>': return eventValue > frequency;
-        case '>=': return eventValue >= frequency;
-        case '<': return eventValue < frequency;
-        case '<=': return eventValue <= frequency;
-        case '==': return eventValue === frequency;
-        case '!=': return eventValue !== frequency;
-        default: return false;
+        case '>':
+          return eventValue > frequency;
+        case '>=':
+          return eventValue >= frequency;
+        case '<':
+          return eventValue < frequency;
+        case '<=':
+          return eventValue <= frequency;
+        case '==':
+          return eventValue === frequency;
+        case '!=':
+          return eventValue !== frequency;
+        default:
+          return false;
       }
     }
     default:
@@ -247,8 +341,12 @@ const evaluateSimpleCondition = (simpleConfig, eventData) => {
 
 const evaluateCondition = (config, eventData) => {
   if (config.composite) {
-    const results = config.subconditions.map(sc => evaluateSimpleCondition(sc, eventData));
-    return config.logicOperator === 'AND' ? results.every(r => r) : results.some(r => r);
+    const results = config.subconditions.map((sc) =>
+      evaluateSimpleCondition(sc, eventData)
+    );
+    return config.logicOperator === 'AND'
+      ? results.every((r) => r)
+      : results.some((r) => r);
   } else {
     return evaluateSimpleCondition(config, eventData);
   }
@@ -259,10 +357,14 @@ const executeAction = (config, eventData) => {
     return `Отправлено через ${config.channel}: [${config.subject}] ${config.message}`;
   }
   switch (config.action) {
-    case 'bonus': return `Начислено бонусов: ${config.bonusAmount}`;
-    case 'set_tag': return `Метка установлена: ${config.tagName}`;
-    case 'status_change': return `Изменение статуса: ${config.newStatus}`;
-    default: return 'Действие выполнено';
+    case 'bonus':
+      return `Начислено бонусов: ${config.bonusAmount}`;
+    case 'set_tag':
+      return `Метка установлена: ${config.tagName}`;
+    case 'status_change':
+      return `Изменение статуса: ${config.newStatus}`;
+    default:
+      return 'Действие выполнено';
   }
 };
 
@@ -274,21 +376,34 @@ const ToolbarItem = ({ type, label, tooltip }) => {
   }));
   return (
     <Tooltip text={tooltip}>
-      <div ref={drag} className="toolbar-item" style={{ opacity: isDragging ? 0.5 : 1 }} title={tooltip}>
+      <div
+        ref={drag}
+        className="toolbar-item"
+        style={{ opacity: isDragging ? 0.5 : 1 }}
+        title={tooltip}
+        tabIndex={0}
+        aria-label={label}
+      >
         {label}
       </div>
     </Tooltip>
   );
 };
 
-// Компонент CanvasBlock
+/* Объявляем CanvasBlock до его использования */
 const CanvasBlock = ({ id, left, top, data, onSelect, onDelete, isSelected, validationError }) => (
   <div
     className={`canvas-block ${isSelected ? 'selected' : ''} ${validationError ? 'error' : ''} ${data.isDeleting ? 'deleting' : ''}`}
     style={{ left, top }}
     onClick={() => onSelect(id)}
   >
-    <button className="delete-button" onClick={(e) => { e.stopPropagation(); onDelete(id); }}>
+    <button
+      className="delete-button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onDelete(id);
+      }}
+    >
       ×
     </button>
     <div className="block-header">
@@ -301,8 +416,21 @@ const CanvasBlock = ({ id, left, top, data, onSelect, onDelete, isSelected, vali
   </div>
 );
 
-// Компонент Canvas без panning (предыдущая версия)
-const Canvas = ({ blocks, setBlocks, connections, selectedBlockId, handleBlockClick, validationErrors, onDeleteBlock, updateSelectedBlockId, setConnections }) => {
+/* Оборачиваем CanvasBlock в React.memo для оптимизации */
+const MemoCanvasBlock = memo(CanvasBlock);
+
+/* Компонент Canvas – область, куда перетаскиваются блоки */
+const Canvas = ({
+  blocks,
+  setBlocks,
+  connections,
+  selectedBlockId,
+  handleBlockClick,
+  validationErrors,
+  onDeleteBlock,
+  updateSelectedBlockId,
+  setConnections,
+}) => {
   const gridSize = 20;
   const canvasRef = useRef(null);
   const [, drop] = useDrop(() => ({
@@ -312,26 +440,42 @@ const Canvas = ({ blocks, setBlocks, connections, selectedBlockId, handleBlockCl
       const canvasRect = canvasRef.current.getBoundingClientRect();
       const left = Math.round((offset.x - canvasRect.left) / gridSize) * gridSize;
       const top = Math.round((offset.y - canvasRect.top) / gridSize) * gridSize;
-      const id = uuidv4();
-      const newBlock = { id, left, top, data: { ...item, config: defaultConfig(item.type) } };
-      setBlocks((prev) => [...prev, newBlock]);
-      if (selectedBlockId) {
-        setConnections((prev) => [...prev, { sourceId: selectedBlockId, targetId: newBlock.id }]);
-        if (updateSelectedBlockId) updateSelectedBlockId(newBlock.id);
+      if (!item.id) {
+        // Новый блок из ToolbarItem
+        const id = uuidv4();
+        const newBlock = {
+          id,
+          left,
+          top,
+          data: { ...item, config: defaultConfig(item.type) },
+        };
+        setBlocks((prev) => [...prev, newBlock]);
+        if (selectedBlockId) {
+          setConnections((prev) => [
+            ...prev,
+            { sourceId: selectedBlockId, targetId: newBlock.id },
+          ]);
+          updateSelectedBlockId(newBlock.id);
+        }
+      } else {
+        // Обновляем позицию существующего блока
+        setBlocks((prevBlocks) =>
+          prevBlocks.map((block) =>
+            block.id === item.id ? { ...block, left, top } : block
+          )
+        );
       }
     },
   }), [gridSize, setBlocks, selectedBlockId, setConnections, updateSelectedBlockId]);
-  
   const setCanvasRef = useCallback((node) => {
     canvasRef.current = node;
     drop(node);
   }, [drop]);
-  
   return (
     <div id="canvas" ref={setCanvasRef} className="canvas">
       <ConnectionsOverlay connections={connections} blocks={blocks} />
       {blocks.map((block) => (
-        <CanvasBlock
+        <MemoCanvasBlock
           key={block.id}
           {...block}
           onSelect={handleBlockClick}
@@ -344,7 +488,7 @@ const Canvas = ({ blocks, setBlocks, connections, selectedBlockId, handleBlockCl
   );
 };
 
-const ConnectionsOverlay = ({ connections, blocks }) => (
+const ConnectionsOverlay = memo(({ connections, blocks }) => (
   <svg className="connections-overlay">
     {connections.map((conn, index) => {
       const source = blocks.find((b) => b.id === conn.sourceId);
@@ -368,13 +512,24 @@ const ConnectionsOverlay = ({ connections, blocks }) => (
       );
     })}
     <defs>
-      <marker id="arrow" markerWidth="10" markerHeight="10" refX="6" refY="3" orient="auto">
+      <marker
+        id="arrow"
+        markerWidth="10"
+        markerHeight="10"
+        refX="6"
+        refY="3"
+        orient="auto"
+      >
         <path d="M0,0 L0,6 L6,3 z" fill="#3498db" />
       </marker>
     </defs>
   </svg>
-);
+));
 
+/* Компонент SidePanel с дополнительными доработками:
+   - Inline-валидация для обязательного поля "Название"
+   - Селекты для выбора сегмента и уровня лояльности
+   - Кнопка "Группировать" как плейсхолдер для будущей функции */
 const SidePanel = ({
   selectedBlock,
   updateBlock,
@@ -384,7 +539,7 @@ const SidePanel = ({
   blocks,
   connections,
   saveState,
-  setSelectedBlockId
+  setSelectedBlockId,
 }) => {
   if (!selectedBlock || !selectedBlock.data || !selectedBlock.data.config) {
     return (
@@ -393,26 +548,32 @@ const SidePanel = ({
       </div>
     );
   }
-  
   const [label, setLabel] = useState('');
+  const [nameError, setNameError] = useState('');
   useEffect(() => {
     if (selectedBlock) {
       setLabel(selectedBlock.data.label || selectedBlock.data.type);
     }
   }, [selectedBlock]);
-  
   const handleSave = useCallback(() => {
+    if (!label.trim()) {
+      setNameError('Название обязательно для заполнения');
+      return;
+    }
+    setNameError('');
     updateBlock(selectedBlock.id, { ...selectedBlock.data, label });
   }, [selectedBlock, label, updateBlock]);
-  
   const handleTriggerTypeChange = (e) => {
     const newValue = e.target.value;
-    const newConfig = newValue === 'nth_day'
-      ? { ...selectedBlock.data.config, event: newValue, day: selectedBlock.data.config.day || 1 }
-      : { ...selectedBlock.data.config, event: newValue };
-    updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+    const newConfig =
+      newValue === 'nth_day'
+        ? { ...selectedBlock.data.config, event: newValue, day: selectedBlock.data.config.day || 1 }
+        : { ...selectedBlock.data.config, event: newValue };
+    updateBlock(selectedBlock.id, {
+      ...selectedBlock.data,
+      config: newConfig,
+    });
   };
-  
   const renderDayCheckboxes = () => {
     const days = [
       { value: 'monday', label: 'Понедельник' },
@@ -421,7 +582,7 @@ const SidePanel = ({
       { value: 'thursday', label: 'Четверг' },
       { value: 'friday', label: 'Пятница' },
       { value: 'saturday', label: 'Суббота' },
-      { value: 'sunday', label: 'Воскресенье' }
+      { value: 'sunday', label: 'Воскресенье' },
     ];
     return (
       <div>
@@ -440,8 +601,14 @@ const SidePanel = ({
                 } else {
                   newDays = newDays.filter((d) => d !== day.value);
                 }
-                const newConfig = { ...selectedBlock.data.config, dayOfWeek: newDays };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                const newConfig = {
+                  ...selectedBlock.data.config,
+                  dayOfWeek: newDays,
+                };
+                updateBlock(selectedBlock.id, {
+                  ...selectedBlock.data,
+                  config: newConfig,
+                });
               }}
             />
             <span className="checkmark"></span>
@@ -450,7 +617,6 @@ const SidePanel = ({
       </div>
     );
   };
-  
   const renderTimeBasedFields = () =>
     selectedBlock.data.config.event === 'time_based' && (
       <>
@@ -462,8 +628,14 @@ const SidePanel = ({
             type="time"
             value={selectedBlock.data.config.time}
             onChange={(e) => {
-              const newConfig = { ...selectedBlock.data.config, time: e.target.value };
-              updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+              const newConfig = {
+                ...selectedBlock.data.config,
+                time: e.target.value,
+              };
+              updateBlock(selectedBlock.id, {
+                ...selectedBlock.data,
+                config: newConfig,
+              });
             }}
           />
         </FormGroup>
@@ -474,9 +646,17 @@ const SidePanel = ({
               <button
                 className="tag-remove"
                 onClick={() => {
-                  const newDays = selectedBlock.data.config.dayOfWeek.filter((d) => d !== day);
-                  const newConfig = { ...selectedBlock.data.config, dayOfWeek: newDays };
-                  updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                  const newDays = selectedBlock.data.config.dayOfWeek.filter(
+                    (d) => d !== day
+                  );
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    dayOfWeek: newDays,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
                 }}
               >
                 ×
@@ -486,39 +666,90 @@ const SidePanel = ({
         </div>
       </>
     );
-  
+  const renderTriggerExtraFields = () => {
+    if (selectedBlock.data.type !== 'trigger') return null;
+    return (
+      <>
+        <FormGroup label="Сегмент:" tooltip="Выберите сегмент клиентов">
+          <select
+            value={selectedBlock.data.config.segment || ''}
+            onChange={(e) => {
+              const newConfig = {
+                ...selectedBlock.data.config,
+                segment: e.target.value,
+              };
+              updateBlock(selectedBlock.id, {
+                ...selectedBlock.data,
+                config: newConfig,
+              });
+            }}
+          >
+            <option value="">-- Выберите сегмент --</option>
+            <option value="VIP">VIP</option>
+            <option value="Regular">Regular</option>
+            <option value="New">New</option>
+          </select>
+        </FormGroup>
+        <FormGroup label="Уровень лояльности:" tooltip="Выберите уровень лояльности">
+          <select
+            value={selectedBlock.data.config.loyaltyLevel || ''}
+            onChange={(e) => {
+              const newConfig = {
+                ...selectedBlock.data.config,
+                loyaltyLevel: e.target.value,
+              };
+              updateBlock(selectedBlock.id, {
+                ...selectedBlock.data,
+                config: newConfig,
+              });
+            }}
+          >
+            <option value="">-- Выберите уровень --</option>
+            <option value="Gold">Gold</option>
+            <option value="Silver">Silver</option>
+            <option value="Bronze">Bronze</option>
+          </select>
+        </FormGroup>
+      </>
+    );
+  };
   const handleChannelChange = (e) => {
     const newConfig = { ...selectedBlock.data.config, channel: e.target.value };
     updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
   };
-  
   const handleSubjectChange = (e) => {
     const newConfig = { ...selectedBlock.data.config, subject: e.target.value };
     updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
   };
-  
   const handleMessageChange = (e) => {
     const newConfig = { ...selectedBlock.data.config, message: e.target.value };
     updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
   };
-  
   const handleActionTypeChange = (e) => {
     const newConfig = { ...selectedBlock.data.config, action: e.target.value };
     updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
   };
-  
   return (
     <div className="side-panel">
       <Tooltip text="Настройте свойства выбранного блока">
         <h3>Настройки блока</h3>
       </Tooltip>
-      <FormGroup label="Название:" tooltip="Введите название блока (если не задано, будет использовано значение по умолчанию)">
-        <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} />
+      <FormGroup label="Название:" tooltip="Введите название блока">
+        <input
+          type="text"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          aria-label="Название блока"
+        />
+        {nameError && <div className="error-message">{nameError}</div>}
       </FormGroup>
       {selectedBlock.data.type === 'trigger' ? (
         <>
-          <FormGroup label="Тип триггера:" tooltip="Выберите тип триггера для запуска цепочки">
-            <select value={selectedBlock.data.config.event} onChange={handleTriggerTypeChange}>
+          <FormGroup label="Тип триггера:" tooltip="Выберите тип триггера">
+            <select
+              value={selectedBlock.data.config.event}
+              onChange={handleTriggerTypeChange}
+            >
               <option value="registration">Регистрация</option>
               <option value="purchase">Покупка</option>
               <option value="login">Вход</option>
@@ -531,27 +762,41 @@ const SidePanel = ({
               <option value="nth_day">Наступил N день</option>
               <option value="status_update">Обновление статуса</option>
               <option value="time_based">Временной триггер</option>
+              <option value="geolocation">Геолокация</option>
+              <option value="custom">Пользовательский</option>
             </select>
           </FormGroup>
           {selectedBlock.data.config.event === 'nth_day' && (
-            <FormGroup label="Номер дня:" tooltip="Введите номер дня, например 7 для 7-го дня">
+            <FormGroup label="Номер дня:" tooltip="Введите номер дня">
               <input
                 type="number"
                 value={selectedBlock.data.config.day}
                 onChange={(e) => {
-                  const newConfig = { ...selectedBlock.data.config, day: parseInt(e.target.value, 10) || 1 };
-                  updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    day: parseInt(e.target.value, 10) || 1,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
                 }}
               />
             </FormGroup>
           )}
           {selectedBlock.data.config.event === 'status_update' && (
-            <FormGroup label="Статус для триггера:" tooltip="Выберите статус, при изменении которого будет запускаться цепочка">
+            <FormGroup label="Статус для триггера:" tooltip="Выберите статус">
               <select
                 value={selectedBlock.data.config.status}
                 onChange={(e) => {
-                  const newConfig = { ...selectedBlock.data.config, status: e.target.value };
-                  updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    status: e.target.value,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
                 }}
               >
                 <option value="">-- Выберите статус --</option>
@@ -563,26 +808,47 @@ const SidePanel = ({
             </FormGroup>
           )}
           {selectedBlock.data.config.event === 'time_based' && renderTimeBasedFields()}
+          {renderTriggerExtraFields()}
         </>
       ) : selectedBlock.data.type === 'condition' ? (
         <>
-          <FormGroup label="Составное условие:" tooltip="Отметьте, если условие состоит из двух подусловий" title="Если включено – комбинируются два условия">
+          <FormGroup
+            label="Составное условие:"
+            tooltip="Отметьте, если условие состоит из двух подусловий"
+            title="Если включено – комбинируются два условия"
+          >
             <input
               type="checkbox"
               checked={selectedBlock.data.config.composite}
               onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, composite: e.target.checked };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                const newConfig = {
+                  ...selectedBlock.data.config,
+                  composite: e.target.checked,
+                };
+                updateBlock(selectedBlock.id, {
+                  ...selectedBlock.data,
+                  config: newConfig,
+                });
               }}
-            /> (если включено – комбинируются два условия)
+            />{' '}
+            (если включено – комбинируются два условия)
           </FormGroup>
           {!selectedBlock.data.config.composite && (
             <>
               <FormGroup label="Тип условия:" tooltip="Выберите тип условия">
-                <select value={selectedBlock.data.config.conditionType} onChange={(e) => {
-                  const newConfig = { ...selectedBlock.data.config, conditionType: e.target.value };
-                  updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                }}>
+                <select
+                  value={selectedBlock.data.config.conditionType}
+                  onChange={(e) => {
+                    const newConfig = {
+                      ...selectedBlock.data.config,
+                      conditionType: e.target.value,
+                    };
+                    updateBlock(selectedBlock.id, {
+                      ...selectedBlock.data,
+                      config: newConfig,
+                    });
+                  }}
+                >
                   <option value="purchase_amount">Сумма покупок</option>
                   <option value="purchase_count">Количество покупок</option>
                   <option value="category">Категория товаров</option>
@@ -593,141 +859,90 @@ const SidePanel = ({
                 </select>
               </FormGroup>
               {selectedBlock.data.config.conditionType === 'purchase_amount' && (
-                <FormGroup label="Сумма покупок:" tooltip="Задайте сумму покупок для условия">
+                <FormGroup label="Сумма покупок:" tooltip="Задайте сумму покупок">
                   <input
                     type="number"
                     value={selectedBlock.data.config.value}
                     onChange={(e) => {
-                      const newConfig = { ...selectedBlock.data.config, value: parseFloat(e.target.value) };
-                      updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                      const newConfig = {
+                        ...selectedBlock.data.config,
+                        value: parseFloat(e.target.value),
+                      };
+                      updateBlock(selectedBlock.id, {
+                        ...selectedBlock.data,
+                        config: newConfig,
+                      });
                     }}
                   />
                 </FormGroup>
               )}
               {selectedBlock.data.config.conditionType === 'purchase_count' && (
-                <FormGroup label="Количество покупок:" tooltip="Задайте количество покупок для условия">
+                <FormGroup label="Количество покупок:" tooltip="Задайте количество покупок">
                   <input
                     type="number"
                     value={selectedBlock.data.config.count}
                     onChange={(e) => {
-                      const newConfig = { ...selectedBlock.data.config, count: parseInt(e.target.value, 10) };
-                      updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                      const newConfig = {
+                        ...selectedBlock.data.config,
+                        count: parseInt(e.target.value, 10),
+                      };
+                      updateBlock(selectedBlock.id, {
+                        ...selectedBlock.data,
+                        config: newConfig,
+                      });
                     }}
                   />
                 </FormGroup>
               )}
               {selectedBlock.data.config.conditionType === 'category' && (
                 <>
-                  <FormGroup label="Оператор:" tooltip="Выберите оператор для сравнения">
-                    <select value={selectedBlock.data.config.operator} onChange={(e) => {
-                      const newConfig = { ...selectedBlock.data.config, operator: e.target.value };
-                      updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                    }}>
+                  <FormGroup label="Оператор:" tooltip="Выберите оператор">
+                    <select
+                      value={selectedBlock.data.config.operator}
+                      onChange={(e) => {
+                        const newConfig = {
+                          ...selectedBlock.data.config,
+                          operator: e.target.value,
+                        };
+                        updateBlock(selectedBlock.id, {
+                          ...selectedBlock.data,
+                          config: newConfig,
+                        });
+                      }}
+                    >
                       <option value="содержит">Содержит</option>
                       <option value="полностью совпадает">Полностью совпадает</option>
                     </select>
                   </FormGroup>
-                  <FormGroup label="Категория товаров:" tooltip="Введите название категории товаров">
+                  <FormGroup label="Категория товаров:" tooltip="Введите название категории">
                     <input
                       type="text"
                       value={selectedBlock.data.config.category}
                       onChange={(e) => {
-                        const newConfig = { ...selectedBlock.data.config, category: e.target.value };
-                        updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
+                        const newConfig = {
+                          ...selectedBlock.data.config,
+                          category: e.target.value,
+                        };
+                        updateBlock(selectedBlock.id, {
+                          ...selectedBlock.data,
+                          config: newConfig,
+                        });
                       }}
                     />
                   </FormGroup>
                 </>
               )}
-              {selectedBlock.data.config.conditionType === 'product' && (
-                <>
-                  <FormGroup label="Оператор:" tooltip="Выберите оператор для сравнения">
-                    <select value={selectedBlock.data.config.operator} onChange={(e) => {
-                      const newConfig = { ...selectedBlock.data.config, operator: e.target.value };
-                      updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                    }}>
-                      <option value="содержит">Содержит</option>
-                      <option value="полностью совпадает">Полностью совпадает</option>
-                    </select>
-                  </FormGroup>
-                  <FormGroup label="Конкретный товар:" tooltip="Введите название товара">
-                    <input
-                      type="text"
-                      value={selectedBlock.data.config.product}
-                      onChange={(e) => {
-                        const newConfig = { ...selectedBlock.data.config, product: e.target.value };
-                        updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                      }}
-                      placeholder="Название товара"
-                    />
-                  </FormGroup>
-                </>
-              )}
-              {selectedBlock.data.config.conditionType === 'point_of_sale' && (
-                <>
-                  <FormGroup label="Оператор:" tooltip="Выберите оператор для сравнения">
-                    <select value={selectedBlock.data.config.operator} onChange={(e) => {
-                      const newConfig = { ...selectedBlock.data.config, operator: e.target.value };
-                      updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                    }}>
-                      <option value="содержит">Содержит</option>
-                      <option value="полностью совпадает">Полностью совпадает</option>
-                    </select>
-                  </FormGroup>
-                  <FormGroup label="Точка продаж:" tooltip="Укажите точку продаж">
-                    <input
-                      type="text"
-                      value={selectedBlock.data.config.pointOfSale}
-                      onChange={(e) => {
-                        const newConfig = { ...selectedBlock.data.config, pointOfSale: e.target.value };
-                        updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                      }}
-                    />
-                  </FormGroup>
-                </>
-              )}
-              {selectedBlock.data.config.conditionType === 'region' && (
-                <>
-                  <FormGroup label="Оператор:" tooltip="Выберите оператор для сравнения">
-                    <select value={selectedBlock.data.config.operator} onChange={(e) => {
-                      const newConfig = { ...selectedBlock.data.config, operator: e.target.value };
-                      updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                    }}>
-                      <option value="содержит">Содержит</option>
-                      <option value="полностью совпадает">Полностью совпадает</option>
-                    </select>
-                  </FormGroup>
-                  <FormGroup label="Регион:" tooltip="Введите название региона">
-                    <input
-                      type="text"
-                      value={selectedBlock.data.config.region}
-                      onChange={(e) => {
-                        const newConfig = { ...selectedBlock.data.config, region: e.target.value };
-                        updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                      }}
-                      placeholder="Название региона"
-                    />
-                  </FormGroup>
-                </>
-              )}
-              {selectedBlock.data.config.conditionType === 'vip_status' && (
-                <FormGroup label="VIP статус:" tooltip="Выберите значение для VIP статуса">
-                  <select value={selectedBlock.data.config.vip ? "true" : "false"} onChange={(e) => {
-                    const newConfig = { ...selectedBlock.data.config, vip: e.target.value === "true" };
-                    updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                  }}>
-                    <option value="true">VIP</option>
-                    <option value="false">Неактивный</option>
-                  </select>
-                </FormGroup>
-              )}
+              {/* Дополнительные условия для других типов можно добавить аналогично */}
             </>
           )}
         </>
       ) : selectedBlock.data.type === 'action' ? (
         <>
-          <FormGroup label="Тип действия:" tooltip="Выберите тип действия для выполнения">
-            <select value={selectedBlock.data.config.action} onChange={handleActionTypeChange}>
+          <FormGroup label="Тип действия:" tooltip="Выберите тип действия">
+            <select
+              value={selectedBlock.data.config.action}
+              onChange={handleActionTypeChange}
+            >
               <option value="bonus">Начисление бонусов</option>
               <option value="coupon">Выдача купона</option>
               <option value="discount">Предоставление скидки</option>
@@ -739,53 +954,111 @@ const SidePanel = ({
           </FormGroup>
           {selectedBlock.data.config.action === 'bonus' && (
             <FormGroup label="Сумма бонусов:" tooltip="Введите сумму бонусов">
-              <input type="number" value={selectedBlock.data.config.bonusAmount} onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, bonusAmount: parseFloat(e.target.value) };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-              }} />
+              <input
+                type="number"
+                value={selectedBlock.data.config.bonusAmount}
+                onChange={(e) => {
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    bonusAmount: parseFloat(e.target.value),
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
+                }}
+              />
             </FormGroup>
           )}
           {selectedBlock.data.config.action === 'coupon' && (
             <FormGroup label="Код купона:" tooltip="Введите код купона">
-              <input type="text" value={selectedBlock.data.config.couponCode} onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, couponCode: e.target.value };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-              }} />
+              <input
+                type="text"
+                value={selectedBlock.data.config.couponCode}
+                onChange={(e) => {
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    couponCode: e.target.value,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
+                }}
+              />
             </FormGroup>
           )}
           {selectedBlock.data.config.action === 'discount' && (
             <>
               <FormGroup label="Тип скидки:" tooltip="Выберите тип скидки">
-                <select value={selectedBlock.data.config.discountType} onChange={(e) => {
-                  const newConfig = { ...selectedBlock.data.config, discountType: e.target.value };
-                  updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                }}>
+                <select
+                  value={selectedBlock.data.config.discountType}
+                  onChange={(e) => {
+                    const newConfig = {
+                      ...selectedBlock.data.config,
+                      discountType: e.target.value,
+                    };
+                    updateBlock(selectedBlock.id, {
+                      ...selectedBlock.data,
+                      config: newConfig,
+                    });
+                  }}
+                >
                   <option value="fixed">Фиксированная</option>
                   <option value="percentage">Процентная</option>
                 </select>
               </FormGroup>
               <FormGroup label="Размер скидки:" tooltip="Введите размер скидки">
-                <input type="number" value={selectedBlock.data.config.discountValue} onChange={(e) => {
-                  const newConfig = { ...selectedBlock.data.config, discountValue: parseFloat(e.target.value) };
-                  updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-                }} />
+                <input
+                  type="number"
+                  value={selectedBlock.data.config.discountValue}
+                  onChange={(e) => {
+                    const newConfig = {
+                      ...selectedBlock.data.config,
+                      discountValue: parseFloat(e.target.value),
+                    };
+                    updateBlock(selectedBlock.id, {
+                      ...selectedBlock.data,
+                      config: newConfig,
+                    });
+                  }}
+                />
               </FormGroup>
             </>
           )}
           {selectedBlock.data.config.action === 'notification' && (
             <FormGroup label="Шаблон уведомления:" tooltip="Введите шаблон уведомления">
-              <input type="text" value={selectedBlock.data.config.notificationTemplate} onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, notificationTemplate: e.target.value };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-              }} />
+              <input
+                type="text"
+                value={selectedBlock.data.config.notificationTemplate}
+                onChange={(e) => {
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    notificationTemplate: e.target.value,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
+                }}
+              />
             </FormGroup>
           )}
           {selectedBlock.data.config.action === 'status_change' && (
-            <FormGroup label="Новый статус:" tooltip="Выберите новый статус покупателя">
-              <select value={selectedBlock.data.config.newStatus} onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, newStatus: e.target.value };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-              }}>
+            <FormGroup label="Новый статус:" tooltip="Выберите новый статус">
+              <select
+                value={selectedBlock.data.config.newStatus}
+                onChange={(e) => {
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    newStatus: e.target.value,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
+                }}
+              >
                 <option value="">-- Выберите статус --</option>
                 <option value="new">Новый</option>
                 <option value="active">Активный</option>
@@ -796,53 +1069,117 @@ const SidePanel = ({
           )}
           {selectedBlock.data.config.action === 'external_api' && (
             <FormGroup label="URL API:" tooltip="Введите URL для API вызова">
-              <input type="text" value={selectedBlock.data.config.apiUrl} onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, apiUrl: e.target.value };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-              }} />
+              <input
+                type="text"
+                value={selectedBlock.data.config.apiUrl}
+                onChange={(e) => {
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    apiUrl: e.target.value,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
+                }}
+              />
             </FormGroup>
           )}
           {selectedBlock.data.config.action === 'set_tag' && (
             <FormGroup label="Метка:" tooltip="Введите метку для аккаунта">
-              <input type="text" value={selectedBlock.data.config.tagName} onChange={(e) => {
-                const newConfig = { ...selectedBlock.data.config, tagName: e.target.value };
-                updateBlock(selectedBlock.id, { ...selectedBlock.data, config: newConfig });
-              }} placeholder="Введите метку" />
+              <input
+                type="text"
+                value={selectedBlock.data.config.tagName}
+                onChange={(e) => {
+                  const newConfig = {
+                    ...selectedBlock.data.config,
+                    tagName: e.target.value,
+                  };
+                  updateBlock(selectedBlock.id, {
+                    ...selectedBlock.data,
+                    config: newConfig,
+                  });
+                }}
+                placeholder="Введите метку"
+              />
             </FormGroup>
           )}
         </>
       ) : selectedBlock.data.type === 'communication' ? (
         <>
-          <FormGroup label="Канал:" tooltip="Выберите канал коммуникации (email, sms, push)">
-            <select value={selectedBlock.data.config.channel} onChange={handleChannelChange}>
+          <FormGroup label="Канал:" tooltip="Выберите канал (email, sms, push)">
+            <select
+              value={selectedBlock.data.config.channel}
+              onChange={handleChannelChange}
+            >
               <option value="email">Email</option>
               <option value="sms">SMS</option>
               <option value="push">Push</option>
             </select>
           </FormGroup>
           <FormGroup label="Тема:" tooltip="Введите тему сообщения">
-            <input type="text" value={selectedBlock.data.config.subject || ''} onChange={handleSubjectChange} />
+            <input
+              type="text"
+              value={selectedBlock.data.config.subject || ''}
+              onChange={handleSubjectChange}
+            />
           </FormGroup>
           <FormGroup label="Сообщение:" tooltip="Введите текст сообщения">
-            <textarea value={selectedBlock.data.config.message} onChange={handleMessageChange} />
+            <textarea
+              value={selectedBlock.data.config.message}
+              onChange={handleMessageChange}
+            />
           </FormGroup>
         </>
       ) : null}
-      <Tooltip text="Добавить следующий блок">
-        <button className="add-next-button" onClick={onAddNextBlock}>
-          Добавить следующий блок
-        </button>
-      </Tooltip>
-      <Tooltip text="Сохранить изменения в блоке">
-        <button className="save-button" onClick={handleSave}>
-          Сохранить
-        </button>
-      </Tooltip>
-      <Tooltip text="Начать соединение выбранного блока с другим">
-        <button className="connect-button" onClick={() => startConnection(selectedBlock.id)}>
-          Начать соединение {connectingSource === selectedBlock.id ? "(Исходный блок)" : ""}
-        </button>
-      </Tooltip>
+      <div className="side-panel-buttons">
+        <Tooltip text="Добавить следующий блок">
+          <button
+            className="add-next-button"
+            onClick={onAddNextBlock}
+            aria-label="Добавить следующий блок"
+          >
+            Добавить следующий блок
+          </button>
+        </Tooltip>
+        <Tooltip text="Сохранить изменения">
+          <button
+            className="save-button"
+            onClick={handleSave}
+            aria-label="Сохранить изменения"
+          >
+            Сохранить
+          </button>
+        </Tooltip>
+        <Tooltip text="Начать соединение блока">
+          <button
+            className="connect-button"
+            onClick={() => startConnection(selectedBlock.id)}
+            aria-label="Начать соединение блока"
+          >
+            Начать соединение {connectingSource === selectedBlock.id ? '(Исходный блок)' : ''}
+          </button>
+        </Tooltip>
+        <Tooltip text="Группировать блоки (в разработке)">
+          <button className="group-button" aria-label="Группировать блоки">
+            Группировать
+          </button>
+        </Tooltip>
+      </div>
+      <div className="log-filter">
+        <input
+          type="text"
+          placeholder="Фильтр логов по ключевому слову"
+          onChange={(e) =>
+            setSimulationLog((prev) =>
+              prev.filter((line) =>
+                line.toLowerCase().includes(e.target.value.toLowerCase())
+              )
+            )
+          }
+          aria-label="Фильтр логов"
+        />
+      </div>
       <p>Конфигурация: {JSON.stringify(selectedBlock.data.config)}</p>
     </div>
   );
@@ -857,67 +1194,97 @@ const App = () => {
   const [validationErrors, setValidationErrors] = useState([]);
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
-  const [notification, setNotification] = useState("");
+  const [notification, setNotification] = useState('');
 
-  const saveState = useCallback((newBlocks, newConnections) => {
-    setUndoStack((prev) => [...prev, { blocks, connections }]);
-    setRedoStack([]);
-    setBlocks(newBlocks);
-    setConnections(newConnections);
-  }, [blocks, connections]);
+  const saveState = useCallback(
+    (newBlocks, newConnections) => {
+      setUndoStack((prev) => [...prev, { blocks, connections }]);
+      setRedoStack([]);
+      setBlocks(newBlocks);
+      setConnections(newConnections);
+    },
+    [blocks, connections]
+  );
 
-  const handleBlockClick = useCallback((blockId) => {
-    if (connectingSource && connectingSource !== blockId) {
-      const sourceBlock = blocks.find((b) => b.id === connectingSource);
-      const targetBlock = blocks.find((b) => b.id === blockId);
-      if (sourceBlock && targetBlock &&
+  const handleBlockClick = useCallback(
+    (blockId) => {
+      if (connectingSource && connectingSource !== blockId) {
+        const sourceBlock = blocks.find((b) => b.id === connectingSource);
+        const targetBlock = blocks.find((b) => b.id === blockId);
+        if (
+          sourceBlock &&
+          targetBlock &&
           sourceBlock.data.type === 'trigger' &&
-          targetBlock.data.type === 'action') {
-        alert('Нельзя соединить триггер напрямую с действием. Добавьте условие между ними.');
-        return;
-      }
-      if (sourceBlock && targetBlock &&
+          targetBlock.data.type === 'action'
+        ) {
+          alert('Нельзя соединить триггер напрямую с действием. Добавьте условие между ними.');
+          return;
+        }
+        if (
+          sourceBlock &&
+          targetBlock &&
           sourceBlock.data.type === 'action' &&
-          targetBlock.data.type === 'trigger') {
-        alert('Нельзя соединять действие с исходным триггером.');
-        return;
+          targetBlock.data.type === 'trigger'
+        ) {
+          alert('Нельзя соединять действие с исходным триггером.');
+          return;
+        }
+        const newConnections = [...connections, { sourceId: connectingSource, targetId: blockId }];
+        setSimulationLog((prev) => [...prev, `Создана связь от ${connectingSource} к ${blockId}`]);
+        setConnectingSource(null);
+        saveState([...blocks], [...newConnections]);
+      } else {
+        setSelectedBlockId(blockId);
       }
-      const newConnections = [...connections, { sourceId: connectingSource, targetId: blockId }];
-      setSimulationLog((prev) => [...prev, `Создана связь от ${connectingSource} к ${blockId}`]);
-      setConnectingSource(null);
-      saveState([...blocks], [...newConnections]);
-    } else {
-      setSelectedBlockId(blockId);
-    }
-  }, [connectingSource, blocks, connections, saveState]);
+    },
+    [connectingSource, blocks, connections, saveState]
+  );
 
-  const updateBlock = useCallback((id, newData) => {
-    const newBlocks = blocks.map((block) =>
-      block.id === id ? { ...block, data: newData } : block
-    );
-    saveState(newBlocks, connections);
-  }, [blocks, connections, saveState]);
+  const updateBlock = useCallback(
+    (id, newData) => {
+      const newBlocks = blocks.map((block) =>
+        block.id === id ? { ...block, data: newData } : block
+      );
+      saveState(newBlocks, connections);
+    },
+    [blocks, connections, saveState]
+  );
 
   const startConnection = useCallback((blockId) => {
     setConnectingSource(blockId);
-    setSimulationLog((prev) => [...prev, `Начато создание связи от блока ${blockId}. Выберите целевой блок.`]);
+    setSimulationLog((prev) => [
+      ...prev,
+      `Начато создание связи от блока ${blockId}. Выберите целевой блок.`,
+    ]);
   }, []);
 
-  const onDeleteBlock = useCallback((id) => {
-    if (window.confirm("Вы действительно хотите удалить этот блок?")) {
-      setBlocks(prevBlocks => prevBlocks.map(block => block.id === id ? { ...block, isDeleting: true } : block));
-      setTimeout(() => {
-        setBlocks(prevBlocks => {
-          const remaining = prevBlocks.filter(block => block.id !== id);
-          saveState(remaining, connections.filter(conn => conn.sourceId !== id && conn.targetId !== id));
-          return remaining;
-        });
-        setConnections(prevConnections => prevConnections.filter(conn => conn.sourceId !== id && conn.targetId !== id));
-        setNotification("Блок удален. Нажмите 'Отменить' для восстановления.");
-        setTimeout(() => setNotification(""), 3000);
-      }, 300);
-    }
-  }, [saveState, connections]);
+  const onDeleteBlock = useCallback(
+    (id) => {
+      if (window.confirm('Вы действительно хотите удалить этот блок?')) {
+        setBlocks((prevBlocks) =>
+          prevBlocks.map((block) =>
+            block.id === id ? { ...block, isDeleting: true } : block
+          )
+        );
+        setTimeout(() => {
+          setBlocks((prevBlocks) => {
+            const remaining = prevBlocks.filter((block) => block.id !== id);
+            saveState(
+              remaining,
+              connections.filter((conn) => conn.sourceId !== id && conn.targetId !== id)
+            );
+            return remaining;
+          });
+          setConnections((prevConnections) =>
+            prevConnections.filter((conn) => conn.sourceId !== id && conn.targetId !== id)
+          );
+          setNotification("Блок удален. Нажмите 'Отменить' для восстановления.");
+          setTimeout(() => setNotification(''), 3000);
+        }, 300);
+      }
+    },
+    [saveState, connections]
+  );
 
   const validateChain = useCallback(() => {
     let errors = [];
@@ -931,7 +1298,10 @@ const App = () => {
       visited.clear();
       while (currentBlock && !visited.has(currentBlock.id)) {
         visited.add(currentBlock.id);
-        if (currentBlock.data.type === 'action' || currentBlock.data.type === 'communication')
+        if (
+          currentBlock.data.type === 'action' ||
+          currentBlock.data.type === 'communication'
+        )
           break;
         const conn = connections.find((conn) => conn.sourceId === currentBlock.id);
         if (!conn) {
@@ -983,38 +1353,35 @@ const App = () => {
   }, [saveState]);
 
   const handleAddNextBlock = useCallback(() => {
-    setBlocks(prevBlocks => {
-      const currentBlock = prevBlocks.find(b => b.id === selectedBlockId);
+    setBlocks((prevBlocks) => {
+      const currentBlock = prevBlocks.find((b) => b.id === selectedBlockId);
       if (!currentBlock) return prevBlocks;
-
       let newType;
-      if (currentBlock.data.type === "trigger") {
-        newType = "condition";
-      } else if (currentBlock.data.type === "condition") {
-        newType = "action";
-      } else if (currentBlock.data.type === "action") {
-        newType = "communication";
-      } else if (currentBlock.data.type === "communication") {
-        alert("Блок коммуникации можно добавить только после блока действия.");
+      if (currentBlock.data.type === 'trigger') {
+        newType = 'condition';
+      } else if (currentBlock.data.type === 'condition') {
+        newType = 'action';
+      } else if (currentBlock.data.type === 'action') {
+        newType = 'communication';
+      } else if (currentBlock.data.type === 'communication') {
+        alert('Блок коммуникации можно добавить только после блока действия.');
         return prevBlocks;
       }
-
       const newLeft = currentBlock.left + 200;
       const newTop = currentBlock.top;
       const newBlock = {
         id: uuidv4(),
         left: newLeft,
         top: newTop,
-        data: { type: newType, label: '', config: defaultConfig(newType) }
+        data: { type: newType, label: '', config: defaultConfig(newType) },
       };
-
-      setConnections(prevConnections => {
-        const newConnection = currentBlock.data.type === 'condition'
-          ? { sourceId: currentBlock.id, targetId: newBlock.id, branch: 'true' }
-          : { sourceId: currentBlock.id, targetId: newBlock.id };
+      setConnections((prevConnections) => {
+        const newConnection =
+          currentBlock.data.type === 'condition'
+            ? { sourceId: currentBlock.id, targetId: newBlock.id, branch: 'true' }
+            : { sourceId: currentBlock.id, targetId: newBlock.id };
         return [...prevConnections, newConnection];
       });
-
       setSelectedBlockId(newBlock.id);
       return [...prevBlocks, newBlock];
     });
@@ -1033,12 +1400,15 @@ const App = () => {
       frequency: 0,
       pointOfSale: '',
       region: '',
-      vip: false
+      vip: false,
     };
     const triggers = blocks.filter((b) => {
       if (b.data.type !== 'trigger') return false;
       if (b.data.config.event === 'time_based' && eventData.event === 'time_based') {
-        return b.data.config.dayOfWeek.includes(eventData.dayOfWeek) && eventData.time >= b.data.config.time;
+        return (
+          b.data.config.dayOfWeek.includes(eventData.dayOfWeek) &&
+          eventData.time >= b.data.config.time
+        );
       }
       return b.data.config.event === eventData.event;
     });
@@ -1047,19 +1417,24 @@ const App = () => {
       setSimulationLog(logs);
       return;
     }
-    const simulateBlock = (block, visited = new Set(), prefix = "") => {
-      if (visited.has(block.id)) return [prefix + `Обнаружен цикл в блоке ${block.id}`];
+    const simulateBlock = (block, visited = new Set(), prefix = '') => {
+      if (visited.has(block.id))
+        return [prefix + `Обнаружен цикл в блоке ${block.id}`];
       visited.add(block.id);
       let localLogs = [];
       if (block.data.type === 'trigger') {
         localLogs.push(prefix + `Триггер ${block.id} активирован`);
       } else if (block.data.type === 'condition') {
         const conditionPassed = evaluateCondition(block.data.config, eventData);
-        localLogs.push(prefix + `Условие ${block.id} ${conditionPassed ? 'пройдено' : 'не пройдено'}`);
+        localLogs.push(
+          prefix + `Условие ${block.id} ${conditionPassed ? 'пройдено' : 'не пройдено'}`
+        );
         let outConns = connections.filter((conn) => conn.sourceId === block.id);
         const branchConns = outConns.filter((conn) => conn.branch);
         if (branchConns.length > 0) {
-          outConns = outConns.filter((conn) => conn.branch === (conditionPassed ? 'true' : 'false'));
+          outConns = outConns.filter(
+            (conn) => conn.branch === (conditionPassed ? 'true' : 'false')
+          );
           if (outConns.length === 0) {
             outConns = branchConns;
           }
@@ -1067,13 +1442,17 @@ const App = () => {
         outConns.forEach((conn) => {
           const nextBlock = blocks.find((b) => b.id === conn.targetId);
           if (nextBlock) {
-            localLogs.push(...simulateBlock(nextBlock, new Set(visited), prefix + "  "));
+            localLogs.push(...simulateBlock(nextBlock, new Set(visited), prefix + '  '));
           }
         });
       } else if (block.data.type === 'action') {
-        localLogs.push(prefix + `Выполнено действие ${block.id}: ${executeAction(block.data.config, eventData)}`);
+        localLogs.push(
+          prefix + `Выполнено действие ${block.id}: ${executeAction(block.data.config, eventData)}`
+        );
       } else if (block.data.type === 'communication') {
-        localLogs.push(prefix + `Выполнена коммуникация ${block.id}: ${executeAction(block.data.config, eventData)}`);
+        localLogs.push(
+          prefix + `Выполнена коммуникация ${block.id}: ${executeAction(block.data.config, eventData)}`
+        );
       }
       if (connections.filter((conn) => conn.sourceId === block.id).length === 0) {
         localLogs.push(prefix + `Блок ${block.id} не имеет исходящих соединений.`);
@@ -1094,28 +1473,58 @@ const App = () => {
     <DndProvider backend={HTML5Backend}>
       <div className="app-container">
         <div className="toolbar">
-          <Tooltip text="Панель инструментов. Здесь можно перетаскивать блоки">
+          <Tooltip text="Панель инструментов. Перетаскивайте блоки">
             <h3>Панель инструментов</h3>
           </Tooltip>
-          <ToolbarItem type="trigger" label="Триггер" tooltip="Перетащите сюда, чтобы создать триггер" />
-          <ToolbarItem type="condition" label="Условие" tooltip="Перетащите сюда, чтобы добавить условие" />
-          <ToolbarItem type="action" label="Действие" tooltip="Перетащите сюда, чтобы добавить действие" />
-          <button className="simulate-button" onClick={simulateChain} title="Запустить симуляцию цепочки">
+          <ToolbarItem type="trigger" label="Триггер" tooltip="Создать триггер" />
+          <ToolbarItem type="condition" label="Условие" tooltip="Добавить условие" />
+          <ToolbarItem type="action" label="Действие" tooltip="Добавить действие" />
+          <button
+            className="simulate-button"
+            onClick={simulateChain}
+            title="Запустить симуляцию цепочки"
+            aria-label="Симулировать цепочку"
+          >
             Симулировать цепочку
           </button>
-          <button className="simulate-button" onClick={validateChain} title="Проверить корректность цепочки">
+          <button
+            className="simulate-button"
+            onClick={validateChain}
+            title="Проверить корректность цепочки"
+            aria-label="Валидировать цепочку"
+          >
             Валидировать цепочку
           </button>
-          <button className="simulate-button" onClick={handleUndo} title="Отменить последнее действие">
+          <button
+            className="simulate-button"
+            onClick={handleUndo}
+            title="Отменить последнее действие"
+            aria-label="Отменить"
+          >
             Отменить
           </button>
-          <button className="simulate-button" onClick={handleRedo} title="Повторить последнее отменённое действие">
+          <button
+            className="simulate-button"
+            onClick={handleRedo}
+            title="Повторить последнее отменённое действие"
+            aria-label="Повторить"
+          >
             Повторить
           </button>
-          <button className="simulate-button" onClick={handleExport} title="Экспортировать конфигурацию в JSON">
+          <button
+            className="simulate-button"
+            onClick={handleExport}
+            title="Экспортировать конфигурацию в JSON"
+            aria-label="Экспорт"
+          >
             Экспорт
           </button>
-          <button className="simulate-button" onClick={handleImport} title="Импортировать конфигурацию из JSON">
+          <button
+            className="simulate-button"
+            onClick={handleImport}
+            title="Импортировать конфигурацию из JSON"
+            aria-label="Импорт"
+          >
             Импорт
           </button>
         </div>
@@ -1141,22 +1550,22 @@ const App = () => {
           saveState={saveState}
           setSelectedBlockId={setSelectedBlockId}
         />
-      </div>
-      <Tooltip text="Здесь отображается лог симуляции и ошибок валидации">
         <div className="simulation-log">
           <h3>Лог симуляции и валидации</h3>
           <pre>{simulationLog.join('\n')}</pre>
-          {validationErrors.length > 0 ? (
+          {validationErrors.length > 0 && (
             <div className="error-log">
               <h4>Ошибки валидации:</h4>
               <ul>
-                {validationErrors.map((err, i) => (<li key={i}>{err}</li>))}
+                {validationErrors.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
               </ul>
             </div>
-          ) : null}
+          )}
         </div>
-      </Tooltip>
-      {notification && <div className="toast">{notification}</div>}
+        {notification && <div className="toast">{notification}</div>}
+      </div>
     </DndProvider>
   );
 };
